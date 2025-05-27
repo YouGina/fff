@@ -200,28 +200,13 @@ func main() {
 			// output files are stored in prefix/domain/normalisedpath/hash.(body|headers)
 			normalisedPath := normalisePath(req.URL)
 			hash := sha1.Sum([]byte(method + rawURL + requestBody + headers.String()))
-			p := path.Join(prefix, req.URL.Hostname(), normalisedPath, fmt.Sprintf("%x.body", hash))
+			p := path.Join(prefix, req.URL.Hostname(), normalisedPath, fmt.Sprintf("%x", hash))
 			err = os.MkdirAll(path.Dir(p), 0750)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to create dir: %s\n", err)
 				return
 			}
 
-			// write the response body to a file
-			err = ioutil.WriteFile(p, responseBody, 0644)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to write file contents: %s\n", err)
-				return
-			}
-
-			// create the headers file
-			headersPath := path.Join(prefix, req.URL.Hostname(), normalisedPath, fmt.Sprintf("%x.headers", hash))
-			headersFile, err := os.Create(headersPath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to create file: %s\n", err)
-				return
-			}
-			defer headersFile.Close()
 
 			var buf strings.Builder
 
@@ -250,8 +235,11 @@ func main() {
 				}
 			}
 
+			buf.WriteString("\r\n")
+			buf.WriteString(fmt.Sprintf("%s", responseBody))
+
 			// add the response body
-			_, err = io.Copy(headersFile, strings.NewReader(buf.String()))
+			err = ioutil.WriteFile(p, []byte(buf.String()), 0644)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to write file contents: %s\n", err)
 				return
